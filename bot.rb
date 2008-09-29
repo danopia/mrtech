@@ -1,50 +1,74 @@
 $LOAD_PATH << './lib'
 require 'irc'
+require 'parser'
+require 'rubygems'
+require 'activerecord'
+require 'models'
 
 $b = binding()
 
+nick = 'on_irc_chuck'
+
 irc = IRC.new( :server => 'irc.freenode.org',
                  :port => 6667,
-                 :nick => 'on_scott',
+                 :nick => nick,
                 :ident => 'on_irc',
              :realname => 'on_irc Ruby IRC library',
               :options => { :use_ssl => false } )
 
-irc.on_001 do
-	irc.join '#botters,##scott'
-end
+parser = Parser.new
 
-irc.on_privmsg do |e|
-  case e.message
-  when '!ping'
-    irc.msg(e.recipient, e.sender.nick + ': pong')
-  when /^!echo (.*)/
-    irc.msg(e.recipient, e.sender.nick + ': ' + $1)
-  when /^!join (.*)/
-    irc.join($1)
-  when '!part'
-    irc.part(e.recipient)
-  when '!quit'
-    if e.sender.host == 'unaffiliated/sco50000'
-      abort('Told to quit by ' + e.sender.mask.to_s + ' in ' + e.recipient)
-    else
-      irc.msg(e.recipient, e.sender.nick + ': no u')
-    end
-  when /^!eval (.*)/
-    if e.sender.host == 'unaffiliated/sco50000'
-      begin
-        irc.msg(e.recipient, eval($1, $b, 'eval', 1))
-      rescue Exception => error
-        irc.msg(e.recipient, error.message)
-      end
-    else
-      irc.msg(e.recipient, 'compile error')
-    end
-  end
+irc.on_001 do
+	irc.join '#botters'
 end
 
 irc.on_all_events do |e|
 	p e
+end
+
+irc.on_invite do |e|
+  irc.join(e.channel)
+end
+
+irc.on_join do |e|
+  irc.msg(e.channel, "Hey #{e.sender.nick}, and welcome to #{e.channel}!") if e.sender.nick != nick
+end
+
+irc.on_privmsg do |e|
+  parser.command(e, 'whatis') do |c, params|
+    factoid = Factoid.find_by_key(c.message)
+    if factoid
+      irc.msg(e.recipient, "#{factoid.key} is #{factoid.value} [added by #{factoid.creator}]")
+    else
+      irc.msg(e.recipient, "Unable to find the #{factoid.key} factoid!")
+    end
+  end
+  
+  parser.command(e, 'eval', true) do |c, params|
+    begin
+      irc.msg(e.recipient, eval(c.message, $b, 'eval', 1))
+    rescue Exception => error
+      irc.msg(e.recipient, 'compile error')
+    end
+  end
+  
+  if e.message =~ /^#{nick}: (.*?) is (.*)$/
+    key = $1
+    value = $2
+    
+    if Factoid.create(:key => key, :value => value, :creator => e.sender.nick)
+      irc.msg(e.recipient, "OK, #{e.sender.nick}.")
+    else
+      irc.msg(e.recipient, "Unable to store factoid.")
+    end
+  elsif e.message =~ /^#{nick}: (.*)$/
+    factoid = Factoid.find_by_key($1)
+    if factoid
+      irc.msg(e.recipient, "#{factoid.key} is #{factoid.value} [added by #{factoid.creator}]")
+    else
+      irc.msg(e.recipient, "Unable to find the #{factoid.key} factoid!")
+    end
+  end
 end
 
 irc.connect
