@@ -9,6 +9,8 @@ puts "Loading Activerecord..."
 require 'activerecord'
 puts "Loading models and connecting to database..."
 require 'models'
+puts "Loading UrT library..."
+require 'urt'
 puts "Loading HPricot, OpenURI and ERB..."
 require 'hpricot'
 require 'open-uri'
@@ -16,19 +18,19 @@ require 'erb'
 
 $b = binding()
 
-nick = 'on_irc_chuck'
+nick = 'MrTech'
 
-irc = IRC.new( :server => 'irc.freenode.org',
+irc = IRC.new( :server => 'irc.eighthbit.net',
                  :port => 6667,
                  :nick => nick,
-                :ident => 'on_irc',
-             :realname => 'on_irc Ruby IRC library',
+                :ident => 'mrtech',
+             :realname => 'MrTech - using on_irc Ruby IRC library',
               :options => { :use_ssl => false } )
 
 parser = Parser.new
 
 irc.on_001 do
-	irc.join '##gpt'
+	irc.join '#gaming,#offtopic'
 end
 
 irc.on_all_events do |e|
@@ -46,14 +48,6 @@ end
 
 irc.on_privmsg do |e|
   
-  parser.command(e, 'eval', true) do |c, params|
-    begin
-      irc.msg(e.recipient, eval(c.message, $b, 'eval', 1))
-    rescue Exception => error
-      irc.msg(e.recipient, 'compile error')
-    end
-  end
-  
   parser.command(e, 'join', true) do |c, params|
     irc.join(c.message)
   end
@@ -66,6 +60,33 @@ irc.on_privmsg do |e|
       irc.msg(e.recipient, 'Invalid Calculation.')
     else
       irc.msg(e.recipient, calculation)
+    end
+  end
+  
+  parser.command(e, 'urt') do |c, params|
+    @urt ||= UrT.new('games.eighthbit.net')
+    server_info = @urt.get_stats(c.message)
+    
+    if server_info.is_a? UrTServerInfo
+      message = "UrT stats for #{server_info.sv_hostname}: Game mode is #{server_info.game_type} on #{server_info.map}. #{server_info.players.size}/#{server_info.sv_maxclients} player" # Base message
+      message += 's' if server_info.players.size != 1 # Pluralize
+      message += ': ' if server_info.players.size > 0
+      
+      # Each player gets an element
+      player_parts = server_info.players.map do |player|
+        "#{player.name} (#{player.score})"
+      end
+      
+      irc.msg(e.recipient, message + player_parts.join(' 15- '))
+    else
+      case server_info
+        when :invalid_address
+          irc.msg(e.recipient, "\"#{c.message} is not a valid server address. I accept hostname/ip[:port] only.")
+        when :bad_response
+          irc.msg(e.recipient, "The server sent an invalid response.")
+        when :timeout
+          irc.msg(e.recipient, "The server failed to respond within 5 seconds.")
+      end
     end
   end
   

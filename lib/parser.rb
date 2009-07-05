@@ -12,7 +12,7 @@ class Parser
   def command(e, name, admin_only = false)
     params = e.message.split
     @event = e
-    if e.message =~ /^`#{name}(?: (.*))?/
+    if e.message =~ /^\$#{name}(?: (.*))?/
       c = Parser::Command.new($1)
       if admin_only && is_admin?
         true
@@ -28,7 +28,7 @@ class Parser
   end
   
   def is_admin?
-    if @event.sender.nick == "chuck"
+    if @event.sender.nick == "danopia"
       true
     else
       false

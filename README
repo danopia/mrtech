@@ -1,6 +1,9 @@
-This is a fork of scott's awesome on_irc library.
+MrTech is a remake of an old Freenode bot that was written in .NET. Right now,
+MrTech can basically only do Urban Terror 4 server stats lookups.
 
-This is here solely to test my code and to let others test it easily also.
-I periodically update it with scott's master copy, as well as push it
-upstream if I actually make something useful.
+Commands
+$urt [host/ip[:port]]
+	Get the specified UrT server's stats, or the default server if no params.
 
+--------------
+MrTech uses Scott's awesome on_irc library, v1.0.
