@@ -81,11 +81,11 @@ irc.on_privmsg do |e|
     else
       case server_info
         when :invalid_address
-          irc.msg(e.recipient, "\"#{c.message} is not a valid server address. I accept hostname/ip[:port] only.")
+          irc.msg(e.recipient, "\"#{c.message}\" is not a valid server address. I accept hostname/ip[:port] only.")
         when :bad_response
           irc.msg(e.recipient, "The server sent an invalid response.")
         when :timeout
-          irc.msg(e.recipient, "The server failed to respond within 5 seconds.")
+          irc.msg(e.recipient, "The server failed to respond within #{@urt.timeout} seconds.")
       end
     end
   end

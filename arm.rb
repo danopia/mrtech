@@ -13,17 +13,17 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 # MA 02110-1301, USA.
 
-# Simple Urban Terror 4 stats requester
+# Simple Armagetron Advanced stats requester
 require 'socket'
 require 'timeout'
 require 'ipaddr'
 
 # Stores data about servers so that you can retrieve it.
-class UrTServerInfo
+class ArmServerInfo
 	# Hash of the data the server returned
 	attr_accessor :data
 	
-	# Array of UrTPlayerInfo
+	# Array of String
 	attr_accessor :players	
 	
 	# Create a new UrTServerInfo instance
@@ -39,40 +39,11 @@ class UrTServerInfo
 
 		data[m.to_s]
 	end
-	
-	# Returns a nice string representing the game mode
-	def game_type
-		case g_gametype.to_i
-			when 0; return 'Free for all'
-			when 3; return 'Team death match'
-			when 4; return 'Team survivor'
-			when 5; return 'Follow the leader'
-			when 6; return 'Capture and hold'
-			when 7; return 'Capture the flag'
-			when 8; return 'Bomb'
-		end
-	end
-	
-	# Returns a pretty string for map name
-	def map
-		mapname[(mapname.index('_')+1)..-1].capitalize
-	end
-end
-
-# Simple class to store player information in
-class UrTPlayerInfo
-	attr_accessor :score, :ping, :name
-	
-	def initialize(score, ping, name)
-		@score = score
-		@ping = ping
-		@name = name
-	end
 end
 
 # The main workhorse, UrT contains methods to pull server info.
 class UrT
-	attr_accessor :default_server, :default_port, :server_timeout
+	attr_accessor :default_server, :default_port
 	
 	# Init the class with some defaults. Note that default_server can contain a
 	# port, and default_port is seperate. You'll probably also want to leave
@@ -81,10 +52,9 @@ class UrT
 	# 54321 if there's no port specified:
 	#
 	#   urt = UrT.new('example.com:12345', 54321)
-	def initialize(default_server=nil, default_port=27960, server_timeout=10)
+	def initialize(default_server=nil, default_port=27960)
 		@default_server = default_server
 		@default_port = default_port
-		@server_timeout = server_timeout
 	end
 	
 	# Lets you send connectionless, null-terminated packets to a server. You
@@ -128,7 +98,7 @@ class UrT
 		# Now parse the port, if there is one
 		port = @default_port
 		if address.size == 2
-			port = address[1].to_i
+			port == address[1].to_i
 			return nil if port < 1 # Catch non-numbers and negative ports
 		end
 		
@@ -173,7 +143,7 @@ class UrT
 	#   end
 	def get_stats(server=nil)
 		begin # Catch errors
-			timeout(@timeout) do # Timeout after @timeout seconds for bad servers
+			timeout(5) do # Timeout after 5 seconds for bad servers
 
 				# Default to the default server
 				server ||= @default_server
