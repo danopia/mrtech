@@ -68,8 +68,8 @@ irc.on_privmsg do |e|
     server_info = @urt.get_stats(c.message)
     
     if server_info.is_a? UrTServerInfo
-      message = "UrT stats for #{server_info.sv_hostname}: Game mode is #{server_info.game_type} on #{server_info.map}. #{server_info.players.size}/#{server_info.sv_maxclients} player" # Base message
-      message += 's' if server_info.players.size != 1 # Pluralize
+      message = "UrT stats for #{server_info.sv_hostname}: Game mode is #{server_info.game_type} on #{server_info.map}. #{server_info.players.size}/#{server_info.sv_maxclients} players" # Base message
+      # message += 's' if server_info.players.size != 1 # Pluralize
       message += ': ' if server_info.players.size > 0
       
       # Each player gets an element

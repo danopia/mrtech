@@ -28,6 +28,65 @@
 require 'socket'
 require 'timeout'
 require 'ipaddr'
+require 'stringio' # For packet messages
+
+class ArmPacket
+	attr_accessor :senderid
+	attr_accessor :messages
+	
+	# Create a new ArmServerInfo instance
+	def initialize(senderid=0, messages=[])
+		@senderid = senderid.to_i
+		@messages = messages || []
+	end
+	
+	def self.parse(data)
+		packet = ArmPacket.new
+		index = 0
+		while data.size >= index + 6
+			descriptor, msgid, size = data[index, 6].unpack('n*')
+			size *= 2 # Size is halfed, probably because of the endian-ness
+			break if data.size < index + 6 + size
+			message = ArmPacketMessage.new(descriptor, msgid, data[index+6, size])
+			index += 6 + size
+			packet << message
+		end
+		packet.senderid = data[index, 2].unpack('n')[0]
+		packet
+	end
+	
+	# Yay endian
+	def self.flip(data)
+		data.gsub(/(.)(.)/, '\2\1')
+	end
+	
+	def <<(message)
+		return unless message.is_a? ArmPacketMessage
+		messages << message
+	end
+	
+	# Return a network-ready packet
+	def string
+		@messages.map{|msg|msg.string}.join('') + [@senderid].pack('n')
+	end
+end
+
+class ArmPacketMessage < StringIO
+	attr_accessor :descriptor, :msgid
+
+	def initialize(descriptor, msgid, data='')
+		@descriptor = descriptor.to_i
+		@msgid = msgid.to_i
+		super()
+		self << data unless !data || data.empty?
+	end
+	
+	# Return a network-ready packet
+	def string
+		[descriptor, msgid, (size/2).to_i].pack('n*') + 
+			super#.gsub(/(.)(.)/, '\2\1')
+	end
+end
 
 # Stores data about servers so that you can retrieve it.
 class ArmServerInfo
@@ -37,23 +96,15 @@ class ArmServerInfo
 	# Array of String
 	attr_accessor :players	
 	
-	# Create a new UrTServerInfo instance
+	# Create a new ArmServerInfo instance
 	def initialize(data, players=[])
 		@data = data
 		@players = players
 	end
-	
-	# Shorter way to access data
-	def method_missing(m, *args, &blck)
-		raise NoMethodError, "undefined method '#{m}' for #{self}" unless data.has_key?(m.to_s)
-		raise ArgumentError, "wrong number of arguments (#{args.length} for 0)" if args.length > 0
-
-		data[m.to_s]
-	end
 end
 
-# The main workhorse, UrT contains methods to pull server info.
-class UrT
+# The main workhorse, Arm contains methods to pull server info.
+class Arm
 	attr_accessor :default_server, :default_port
 	
 	# Init the class with some defaults. Note that default_server can contain a
@@ -62,17 +113,16 @@ class UrT
 	# at example.com:12345, but you want calls to other servers to default to
 	# 54321 if there's no port specified:
 	#
-	#   urt = UrT.new('example.com:12345', 54321)
-	def initialize(default_server=nil, default_port=27960)
+	#   arm = Arm.new('example.com:12345', 54321)
+	def initialize(default_server=nil, default_port=4534)
 		@default_server = default_server
 		@default_port = default_port
 	end
 	
-	# Lets you send connectionless, null-terminated packets to a server. You
-	# probably won't use this.
-	def command(cmd, server, port)
+	# Lets you send ArmPacket objects to a server. You probably won't use this.
+	def send(packet)
 		@@socket ||= UDPSocket.open
-		@@socket.send("\xFF\xFF\xFF\xFF#{cmd}\x00", 0, server, port)
+		@@socket.send(packet.string, 0, server, port)
 		@@socket.flush
 	end
 	
