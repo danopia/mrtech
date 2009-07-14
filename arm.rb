@@ -73,6 +73,8 @@ end
 
 class ArmPacketMessage < StringIO
 	attr_accessor :descriptor, :msgid
+	
+	alias contents string
 
 	def initialize(descriptor, msgid, data='')
 		@descriptor = descriptor.to_i
@@ -84,22 +86,33 @@ class ArmPacketMessage < StringIO
 	# Return a network-ready packet
 	def string
 		[descriptor, msgid, (size/2).to_i].pack('n*') + 
-			super#.gsub(/(.)(.)/, '\2\1')
+			contents#.gsub(/(.)(.)/, '\2\1')
 	end
 end
 
 # Stores data about servers so that you can retrieve it.
 class ArmServerInfo
-	# Hash of the data the server returned
-	attr_accessor :data
-	
-	# Array of String
-	attr_accessor :players	
+	attr_accessor :name, :platform, :description, :url, :players
 	
 	# Create a new ArmServerInfo instance
-	def initialize(data, players=[])
-		@data = data
-		@players = players
+	def initialize(name=nil)
+		@name = name
+		@players = []
+	end
+	
+	def self.parse(data)
+		packet = ArmServerInfo.new
+		index = 0
+		while data.size >= index + 6
+			descriptor, msgid, size = data[index, 6].unpack('n*')
+			size *= 2 # Size is halfed, probably because of the endian-ness
+			break if data.size < index + 6 + size
+			message = ArmPacketMessage.new(descriptor, msgid, data[index+6, size])
+			index += 6 + size
+			packet << message
+		end
+		packet.senderid = data[index, 2].unpack('n')[0]
+		packet
 	end
 end
 
@@ -120,7 +133,7 @@ class Arm
 	end
 	
 	# Lets you send ArmPacket objects to a server. You probably won't use this.
-	def send(packet)
+	def send(packet, server, port)
 		@@socket ||= UDPSocket.open
 		@@socket.send(packet.string, 0, server, port)
 		@@socket.flush
@@ -129,7 +142,7 @@ class Arm
 	# Recieves a packet from the server, stripping off a header. You probably
 	# won't use this.
 	def recv()
-		@@socket.recvfrom(65536)[0][4..-1]
+		@@socket.recvfrom(65536)[0]
 	end
 	
 	# This handy utility takes a string (as you would feed in on a command line
@@ -179,7 +192,7 @@ class Arm
 	#   :timeout           The server didn't respond before the specified
 	#                      timeout. Might be lagging badly or not running.
 	#
-	# === Examples
+	# === Example
 	#   @urt ||= UrT.new('games.eighthbit.net')
 	#   server_info = @urt.get_stats(c.message)
 	#   
@@ -212,35 +225,36 @@ class Arm
 				# Parse the server to make sure it's valid
 				server = parse_address server
 				return :invalid_address if server == nil # Pass along invalid address nil's
-			
-				command 'getstatus', server[0], server[1] # Send status command to server
+				
+				# Build a packet to request status
+				reqPacket = ArmPacket.new()
+				reqPacket << ArmPacketMessage.new(53, 0)
+				send reqPacket, server[0], server[1] # Send to the server
 
 				# Get and parse data
-				data = recv.split("\n")
-				return :bad_response if data[0] != 'statusResponse' # Real response?
-				return :bad_response if data.size < 2 # Needs to have at least 2 lines
+				data = recv
+				recvPacket = ArmPacket.parse(data)
+				puts recvPacket.messages.size
+				return :bad_response1 if recvPacket.messages.size < 1 # Has a message?
+				msg = recvPacket.messages[0]
+				puts msg.descriptor
+				return :bad_response2 if msg.descriptor != 51		 # Correct message?
+				p msg.contents
+				return :bad_response3 if msg.contents.size < 10 # Needs to have some data
 
-				# This may look intimidating, but it's not.
-				#
-				# It takes every /key/value pair from the second line, puts them in arrays,
-				# then the Hash[] format makes it into a hash.
-				
-				#info = Hash[data[1].scan(/([^\\]+)\\([^\\]+)/).flatten]
-				info = {}
-				data[1].scan(/([^\\]+)\\([^\\]+)/).each do |pair|
-					info[pair[0]] = pair[1]
-				end
+
+
 
 				# Make a new object
-				serverinfo = UrTServerInfo.new(info)
+				serverinfo = ArmServerInfo.new(info)
 
 				# After the first 2 lines, the rest are for players.
 				#
 				#   [score, ping, name]
-				serverinfo.players = data[2..-1].map do |item|
-					items = item.split(' ')
-					UrTPlayerInfo.new(items[0].to_i, items[1].to_i, items[2..-1].join(' ').gsub('"', ''))
-				end
+				#serverinfo.players = data[2..-1].map do |item|
+				#	items = item.split(' ')
+				#	ArmPlayerInfo.new(items[0].to_i, items[1].to_i, items[2..-1].join(' ').gsub('"', ''))
+				#end
 				
 				# Return the server info
 				return serverinfo
@@ -252,3 +266,14 @@ class Arm
 		end
 	end
 end
+
+#data=['00330000004f11b6000000010000001469456867687469422074654469646163657400640000000000070000000d000000192e302e322e382e3220316e75786964206465636974616465000000100000000100000032664f696669636c61452067697468426874696e2e746541206d72676174656f72206e655376727265202e75506c626369002e0019746870742f3a772f7777652e67697468626874696e2e746500000000'].pack('H*')
+#print data
+#exit
+#packet = ArmPacket.parse data
+#p packet.messages[0].contents
+
+arm = Arm.new('games.eighthbit.net')
+reply = arm.get_stats
+p reply
+p packet.messages[0].contents

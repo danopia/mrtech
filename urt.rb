@@ -66,7 +66,7 @@ class UrTServerInfo
 	
 	# Returns a pretty string for map name
 	def map
-		mapname[(mapname.index('_')+1)..-1].capitalize
+		mapname.split('_', 2)[1].capitalize
 	end
 end
 
@@ -159,7 +159,7 @@ class UrT
 	#   :timeout           The server didn't respond before the specified
 	#                      timeout. Might be lagging badly or not running.
 	#
-	# === Examples
+	# === Example
 	#   @urt ||= UrT.new('games.eighthbit.net')
 	#   server_info = @urt.get_stats(c.message)
 	#   
@@ -184,7 +184,7 @@ class UrT
 	#   end
 	def get_stats(server=nil)
 		begin # Catch errors
-			timeout(@timeout) do # Timeout after @timeout seconds for bad servers
+			Timeout::timeout(@server_timeout) do # Timeout after @server_timeout seconds for bad servers
 
 				# Default to the default server
 				server ||= @default_server
