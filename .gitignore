@@ -2,3 +2,4 @@
 geany_run_script.sh
 tmp*
 *.sqlite3
+.project

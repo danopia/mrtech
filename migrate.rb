@@ -43,6 +43,41 @@ class CreateKarma < ActiveRecord::Migration
   end
 end
 
+class CreateRedmineIssues < ActiveRecord::Migration
+  def self.up
+    create_table :redmine_issues do |t|
+      t.integer :issue_id
+      t.integer :status
+      t.string :subject
+      t.datetime :last_updated
+      t.timestamps
+    end
+  end
+
+  def self.down
+    drop_table :redmine_issues
+  end
+end
+
+class CreateRedmineJournal < ActiveRecord::Migration
+  def self.up
+    create_table :redmine_journals do |t|
+      t.integer :issue_id
+      t.integer :entry_id
+      t.string :message
+      t.datetime :last_updated
+      t.timestamps
+    end
+  end
+
+  def self.down
+    drop_table :redmine_journals
+  end
+end
+
 # run the migrations
 #CreateFactoids.migrate(:up)
 #CreateKarma.migrate(:up)
+#CreateRedmineIssues.migrate(:up)
+CreateRedmineJournal.migrate(:down)
+CreateRedmineJournal.migrate(:up)

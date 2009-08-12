@@ -36,3 +36,9 @@ class Karma < ActiveRecord::Base
     positive = !value
   end
 end
+
+class RedmineIssue < ActiveRecord::Base
+end
+
+class RedmineJournal < ActiveRecord::Base
+end
