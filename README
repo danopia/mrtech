@@ -1,9 +1,75 @@
-MrTech is a remake of an old Freenode bot that was written in .NET. Right now,
-MrTech can basically only do Urban Terror 4 server stats lookups.
+MrTech is a remake of an old Freenode bot that was written in .NET. Although
+the features that the two had in common are very few, it's fun to redo the
+features every now and then :)
 
-Commands
+--------------
+Commands:
+
+$calc <equation>
+  Feeds the equation into Google Calc. Can convert too.
+
+$issues
+	Give stats on dux's Redmine issue trackers.
+
+$bofh
+	Rattle off a random BOFH excuse (from ./excuses)
+
+$fortune
+	Get a short fortune from /usr/bin/games/fortune and returns it to the channel.
+
+$long_fortune
+	Get a long fortune from /usr/bin/games/fortune and notices it to the requester.
+
+$dux
+	Lists the recent updates to issues on Dux's redmine trackers.
+
 $urt [host/ip[:port]]
 	Get the specified UrT server's stats, or the default server if no params.
 
+$lock <factoid>
+	Locks a factoid so only admins can edit it.
+
+$unlock <factoid>
+	Unlocks a factoid so anyone can edit it.
+
+$karma <nick>
+	Gets a person's karma.
+
+--------------
+Regex triggers:
+
+/(bug|issue|feature|support|fixes|refs|references|IssueID) #?([0-9]+)/
+we need to fix issue 4 and bug #17
+	Gets the details of an issue from Dux's redmine and returns it to channel.
+
+/^MrTech[:,] (.*?) is (.*)$/
+MrTech: duckinator is a duck that can type
+	Store a factoid.
+
+/^MrTech[:,] (.*)$/
+MrTech: testing
+	Get a factoid.
+
+/^(.*)\+\+$/
+danopia++
+	Vote karma up.
+
+/^(.*)--$/
+b4--
+	Vote karma down.
+
+/^\001ACTION (hugs|licks|kisses|huggles|snuggles up with|loves) MrTech(.*?)\001$/
+/me huggles MrTech
+	Triggers an "Aww." response
+
+/^\001ACTION (kills|farts on|eats|drinks|poops on|sets fire to|bites) MrTech(.*?)\001$/
+/me eats MrTech
+	Triggers a "You're mean." response
+
+--------------
+License: BSD
+
 --------------
 MrTech uses Scott's awesome on_irc library, v1.0.
+
+I'll go to v2.0 once it's mature.

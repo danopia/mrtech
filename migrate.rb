@@ -76,8 +76,7 @@ class CreateRedmineJournal < ActiveRecord::Migration
 end
 
 # run the migrations
-#CreateFactoids.migrate(:up)
-#CreateKarma.migrate(:up)
-#CreateRedmineIssues.migrate(:up)
-CreateRedmineJournal.migrate(:down)
+CreateFactoids.migrate(:up)
+CreateKarma.migrate(:up)
+CreateRedmineIssues.migrate(:up)
 CreateRedmineJournal.migrate(:up)
