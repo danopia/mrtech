@@ -107,6 +107,10 @@ irc.on_privmsg do |e|
     irc.msg(e.recipient, 'Issue statistics for Dux: ' + issues_by_status.join(', '))
   end
   
+  parser.command(e, 'badtime') do |c, params|
+    irc.msg(e.recipient, (Time.now.utc+(10*60*60)).strftime('It is currently %I:%M:%S %p where baddog lives.'))
+  end
+  
   parser.command(e, 'bofh') do |c, params|
     irc.msg(e.recipient, $bofh[rand($bofh.size)])
   end
@@ -321,7 +325,7 @@ irc.on_privmsg do |e|
   elsif e.message =~ /^#{nick}[:,] (.*)$/
     factoid = Factoid.find_by_key($1)
     if factoid
-      value = factoid.value
+      value = factoid.value.gsub('%n', e.sender.nick).gsub('%c', e.recipient)
       if value =~ /^\[.+\|\|.+\]$/
         values = value[1..-2].split('||')
         value = values[(rand * values.size).to_i]
@@ -368,9 +372,17 @@ irc.on_privmsg do |e|
     
   elsif e.message =~ /^\001ACTION (hugs|licks|kisses|huggles|snuggles up with|loves) #{nick}(.*?)\001$/
     irc.msg(e.recipient, 'Aww :-)')
-  
   elsif e.message =~ /^\001ACTION (kills|farts on|eats|drinks|poops on|sets fire to|bites) #{nick}(.*?)\001$/
     irc.msg(e.recipient, "You're mean :-(")
+  
+  elsif e.message =~ /^\001VERSION\001$/
+    irc.notice(e.sender.nick, "\001VERSION MrTech - using on_irc Ruby IRC library\001")
+  elsif e.message =~ /^\001PING\001$/
+    irc.notice(e.sender.nick, "\001PING\001")
+  elsif e.message =~ /^\001PING (.+)\001$/
+    irc.notice(e.sender.nick, "\001PING #{$1}\001")
+  elsif e.message =~ /^\001FINGER\001$/
+    irc.notice(e.sender.nick, "\001FINGER Ewwwwwww... I dunno what to put here... maybe you want to VERSION me? :)\001")
     
   end
   

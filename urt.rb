@@ -104,7 +104,7 @@ class UrT
 	# probably won't use this.
 	def command(cmd, server, port)
 		@@socket ||= UDPSocket.open
-		@@socket.send("\xFF\xFF\xFF\xFF#{cmd}\x00", 0, server, port)
+		@@socket.send("\xFF\xFF\xFF\xFF#{cmd}\x00", 0, server, [65535, [0, port].max].min)
 		@@socket.flush
 	end
 	

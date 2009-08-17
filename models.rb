@@ -4,6 +4,20 @@ ActiveRecord::Base.establish_connection({
       :dbfile => "db/database.sqlite3"
 })
 
+class AccessLevel < ActiveRecord::Base
+  validates_uniqueness_of :path
+  
+  # This way we can use LIKE for case-insensetivity
+  def self.find_by_path(key)
+    AccessLevel.first(:conditions => ['path LIKE ?', path])
+  end
+  
+  # This way we can use LIKE for case-insensetivity
+  def self.find_by_user(user)
+    AccessLevel.first(:conditions => ['key LIKE ?', key])
+  end
+end
+
 class Factoid < ActiveRecord::Base
   validates_uniqueness_of :key
   
