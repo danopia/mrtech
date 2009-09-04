@@ -349,13 +349,14 @@ irc.on_privmsg do |e|
   elsif e.message =~ /^#{nick}[:,] (.*?) is (.*)$/
     key = $1
     value = $2
+		allowed = true
     
     factoid = Factoid.find_by_key($1)
     if not factoid
       factoid = Factoid.new(:key => key, :value => value, :creator => e.sender.nick)
     elsif factoid.locked && (e.sender.nick != 'danopia')
       irc.msg(e.recipient, "You can't overwrite a locked factoid.")
-      break
+      allowed = false
     else
       factoid.value = value
       factoid.creator = e.sender.nick
@@ -373,7 +374,8 @@ irc.on_privmsg do |e|
       end
     end
     
-    if factoid.save
+		if not allowed
+    elsif factoid.save
       irc.msg(e.recipient, "OK, #{e.sender.nick}.")
     else
       irc.msg(e.recipient, "Unable to store factoid.")
@@ -449,10 +451,12 @@ irc.on_privmsg do |e|
       irc.msg(e.recipient, "Factoid not found.")
     elsif factoid.locked
       irc.msg(e.recipient, "That's already locked.")
-    else
-      factoid.locked = (e.sender.nick == 'danopia')
+    elsif e.sender.nick == 'danopia'
+      factoid.locked = true
       factoid.save
-      irc.msg(e.recipient, "Locked.")
+			irc.msg(e.recipient, "Locked.")
+		else
+      irc.msg(e.recipient, "You need to be an admin to lock factoids. Duh.")
     end
   end
   
@@ -462,11 +466,13 @@ irc.on_privmsg do |e|
       irc.msg(e.recipient, "Factoid not found.")
     elsif not factoid.locked
       irc.msg(e.recipient, "That's already unlocked.")
-    else
-      factoid.locked = false if e.sender.nick == 'danopia'
+    elsif e.sender.nick == 'danopia'
+      factoid.locked = false
       factoid.save
       irc.msg(e.recipient, "Unlocked.")
-    end
+    else
+      irc.msg(e.recipient, "You need to be an admin to unlock factoids. Duh.")
+		end
   end
   
   parser.command(e, 'karma') do |c, params|
