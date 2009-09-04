@@ -234,7 +234,14 @@ irc.on_privmsg do |e|
   
   parser.command(e, 'urt') do |c, params|
     @urt ||= UrT.new('games.eighthbit.net')
-    server_info = @urt.get_stats(c.message)
+    
+    server = c.message
+    case server
+      when 'testing'; server = 'games.eighthbit.net:27961'
+      when 'blr'; server = 'blr1.ath.cx'
+    end
+    
+    server_info = @urt.get_stats(server)
     
     if server_info.is_a? UrTServerInfo
       message = "UrT stats for #{server_info.sv_hostname}: Playing #{server_info.game_type} on #{server_info.map}. #{server_info.players.size}/#{server_info.sv_maxclients} players" # Base message
@@ -261,6 +268,56 @@ irc.on_privmsg do |e|
         when :timeout
           irc.msg(e.recipient, "The server failed to respond within #{@urt.server_timeout} seconds.")
       end
+    end
+  end
+  
+  parser.command(e, 'findurt') do |c, params|
+    @urt ||= UrT.new('games.eighthbit.net')
+    
+    servers = [
+      'games.eighthbit.net',
+      'games.eighthbit.net:27961',
+      'blr1.ath.cx'
+    ]
+    
+    query = c.message
+    results = servers.map do |server|
+      server_info = @urt.get_stats(server)
+      
+      if server_info.is_a? UrTServerInfo
+        matches = server_info.players.select do |player|
+          player.name.downcase.include? query.downcase
+        end
+        
+        next nil if matches.empty?
+        
+        if matches.size == 1
+          next "Match on #{server_info.sv_hostname}: #{matches[0].name} (with #{matches[0].score} points)"
+        end
+        
+        result = 
+        sorted_matches = matches.sort do |a, b|
+          next a.name.downcase <=> b.name.downcase if a.score == b.score
+          b.score <=> a.score
+        end
+        
+        # Each match gets an element
+        match_lines = sorted_matches.map do |player|
+          "#{player.name} " + ((player.score == 0) ? ' ' : "(#{player.score}) ")
+        end
+        
+        next "#{server_info.sv_hostname}: #{match_lines.join(' - ')}"
+      else
+        next nil
+      end
+    end.compact
+    
+    if results.empty?
+      irc.msg(e.recipient, "Sorry, I couldn't find #{query} anywhere.")
+    elsif results.size == 1
+      irc.msg(e.recipient, results[0])
+    else
+      irc.msg(e.recipient, "Got matches on #{results.size} different servers... " + results.join(' || '))
     end
   end
   
