@@ -50,6 +50,7 @@ nick = 'MrTech'
 #             :realname => 'MrTech - using on_irc Ruby IRC library',
 #              :options => { :use_ssl => false } )
 require 'init-irc'
+irc = $irc
 
 parser = Parser.new
 
@@ -76,146 +77,135 @@ class ParseError < Exception
 end
 
 class Quantity
-	def self.parse(io, root=false)
-		buffer = ''
-		quantity = Quantity.new()
-		until io.eof?
-			chr = io.read(1)
-			case chr
-				when ')'
-					raise(ParseError, 'Unexpected ): no matching (') if root
-					if !buffer.empty?
-						quantity.members << buffer.to_f
-						buffer = ''
-					end
-					break
-				when '('
-					subquantity = Quantity.parse(io)
-					if buffer.empty? && (quantity.members.empty? || quantity.members.last.is_a?(String))
-						quantity.members << subquantity
-					elsif !buffer.empty?
-						quantity.members << buffer.to_f
-						buffer = ''
-						quantity.members << '*'
-						quantity.members << subquantity
-					elsif !quantity.members.empty? && !quantity.members.last.is_a?(String)
-						quantity.members << '*'
-						quantity.members << subquantity
-					else
-						raise ParseError, 'HALP! (error #1)'
-					end
-				when '0'..'9', '.'
-					buffer += chr
-					# value = number1.to_f.send(operation, number2.to_f)
-				when '+', '-', '*', '/'
-					if !buffer.empty?
-						quantity.members << buffer.to_f
-						buffer = ''
-					end
-					if (quantity.members.empty? || quantity.members.last.is_a?(String))
-						if chr == '-'
-							raise ParseError, 'HALP! (error #2)'
-						else
-							raise ParseError, "Unexpected operator \"#{chr}\"; expected a number or quantity"
-						end
-					else
-						quantity.members << chr
-					end
-				when '^'
-					if !buffer.empty?
-						quantity.members << buffer.to_f
-						buffer = ''
-					end
-					if (quantity.members.empty? || quantity.members.last.is_a?(String))
-						raise ParseError, "Unexpected operator \"#{chr}\"; expected a number or quantity"
-					else
-						quantity.members << '**'
-					end
-				else
-					raise ParseError, "Invalid charactor \"#{chr}\""
-  		end
-		end
-		
-		if !buffer.empty?
-			quantity.members << buffer.to_f
-			buffer = ''
-		end
-		
-		quantity
-	end
-	
 	attr_accessor :members
-	def initialize(param=nil)
-		if param.is_a? String
-			# TODO: parse
-		else
-			@members = []
+	def initialize(param=nil, mode=nil, func=nil)
+		@members = []
+		@buffer = ''
+		@variable = ''
+		@function = func
+		@mode = mode
+		
+		if param.is_a? StringIO
+			io = param
+			until io.eof?
+				chr = io.read(1)
+				case chr
+				
+					when ')'
+						raise(ParseError, 'Unexpected ): no matching (') if @mode == :root
+						raise(ParseError, 'Unexpected ): no matching (, expected |') if @mode == :abs
+						handle_buffer
+						break
+				
+					when '|'
+						handle_buffer
+						if @mode == :abs
+							break
+						else
+							quantity = Quantity.new(io, :abs)
+							implied_multiplication quantity
+						end
+						
+					when '('
+						quantity = Quantity.new(io)
+						implied_multiplication quantity
+						
+					when '0'..'9', '.'
+						raise ParseError, 'Spaces can\'t exist inside numbers right now, sorry.' if (!@members.empty? && @members.last.is_a?(Float))
+						raise ParseError, 'Numbers can\' be after quantities or variables unless you include an explicit operator.' if (!@members.empty? && !@members.last.is_a?(String))
+						@buffer += chr
+						
+					when 'a'..'z'
+						raise ParseError, 'Spaces can\'t exist inside numbers right now, sorry.' if (!@members.empty? && @members.last.is_a?(Float))
+						@buffer += chr
+						
+					when '+', '-', '*', '/'
+						add_operator chr
+					when '^'
+						add_operator '**'
+					when ' '
+						handle_buffer
+					else
+						raise ParseError, "Invalid charactor \"#{chr}\""
+				end
+			end
+			
+			handle_buffer
 		end
 	end
 	
-	def value
-		before = ''
-		after = 0.to_f
+	def to_s
+		return '|' + to_root_s + '|' if @mode == :abs
+		'(' + to_root_s + ')'
+	end
+	def to_root_s # used for a root quantity so that the whole expression isn't wrapped with ( )
+		@members.join(' ')
+	end
+	
+	def to_f
 		operation = ''
-		
 		members = @members
-		
-		@operator_levels = {
-			0 => ['**'],
-			1 => ['*', '/'],
-			2 => ['+', '-']
-		}
-		
-		# Create initial string
-		members.each do |member|
-			if member.is_a? String
-				before += " #{member} "
-			elsif member.is_a? Float
-				before += member.to_s
-			elsif member.is_a? Quantity
-				result = member.value
-				before += "(#{result[0]})"
-			else
-				raise ParseError, "Wow I failed somewhere. (Extra exception data: #{member.class}"
-			end
-		end
-		
-		@operator_levels.each_value do |operators|
-			p members
-			members.select{|member|operators.include? member}.each do |member|
+	
+		[['**'], ['*', '/'], ['+', '-']].each do |operators|
+			members.select{|member| operators.include? member }.each do |member|
 				pos = members.index member
-				number1 = members[pos-1]
-				number1 = number1.value[1] if number1.is_a? Quantity
-				number2 = members[pos+1]
-				number2 = number2.value[1] if number1.is_a? Quantity
-				members[pos-1] = number1.to_f.send(member, number2.to_f).to_f
+				number1 = members[pos-1].to_f
+				number2 = members[pos+1].to_f
+				members[pos-1] = number1.send(member, number2).to_f
 				members.delete_at pos
 				members.delete_at pos
 			end
 		end
 		
-		p members
-		
-		[before, members[0]]
+		return members[0].abs if @mode == :abs
+		members[0].to_f
+	end
+	
+	protected
+	def handle_buffer
+		false
+		if !@buffer.empty?
+			@members << @buffer.to_f
+			@buffer = ''
+			true
+		end
+	end
+	
+	def add_operator(operator)
+		handle_buffer
+		if (@members.empty? || @members.last.is_a?(String))
+			if operator == '-'
+				raise ParseError, 'Negatives aren\'t implemented like that yet. Please use (0-###) instead of -###.'
+			else
+				raise ParseError, "Unexpected operator \"#{operator}\"; expected practically anything else."
+			end
+		else
+			@members << operator
+		end
+	end
+	
+	def implied_multiplication(value)
+		if handle_buffer || (!@members.empty? && !@members.last.is_a?(String))
+			@members << '*'
+		end
+		@members << value
 	end
 end
 
 irc.on_privmsg do |e|
-  
   parser.command(e, 'solve', true) do |c, params|
   	output = ''
   	
 		io = StringIO.new(c.message)
 		begin
-			quantity = Quantity.parse(io, true)
-			value = quantity.value
-			irc.msg e.recipient, "#{value[0]} = #{value[1]}"
+			quantity = Quantity.new(io, true)
+			p quantity
+			irc.msg e.recipient, "#{quantity.to_root_s} = #{quantity.to_f}"
 		rescue ParseError => error
 			irc.msg e.recipient, "Error while parsing your expression: #{error.message}"
 		end
     
   end
-  
 end
 
 irc.connect
