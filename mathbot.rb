@@ -55,7 +55,7 @@ irc = $irc
 parser = Parser.new
 
 irc.on_001 do
-	irc.join '#offtopic,#duckinator'
+	irc.join '#offtopic,#duckinator,##danopia'
 end
 
 irc.on_all_events do |e|
@@ -74,6 +74,15 @@ end
 require 'stringio'
 
 class ParseError < Exception
+end
+
+class Float
+	alias :to_float_s :to_s
+	
+	def to_s
+		return to_i.to_s unless self % 1 > 0
+		to_float_s
+	end
 end
 
 class Quantity
