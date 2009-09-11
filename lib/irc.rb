@@ -30,6 +30,7 @@ class IRC
 		@server   = args[:server]
 		@port     = args[:port]     || 6667
 		@nick     = args[:nick]
+		@password = args[:password]
 		@ident    = args[:ident]    || args[:nick]
 		@realname = args[:realname] || args[:nick]
 		@options  = args[:options]  || {}
@@ -91,6 +92,7 @@ class IRC
 	    @socket = socket
 	  end
 	  
+	  raw "PASS #{@password}" if @password
 		raw "USER #{@ident} * * :#{@realname}"
 		raw "NICK #{@nick}"
 

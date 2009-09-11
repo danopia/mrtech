@@ -55,11 +55,18 @@ $b = binding()
 
 nick = 'MrTech'
 
-irc = IRC.new( :server => 'Platinum.eighthbit.net',
-                 :port => 6667,
+#irc = IRC.new( :server => 'Platinum.eighthbit.net',
+#                 :port => 6667,
+#                 :nick => nick,
+#                :ident => 'mrtech',
+#             :realname => 'MrTech - using on_irc Ruby IRC library',
+#              :options => { :use_ssl => false } )
+irc = IRC.new( :server => 'danopia.net',
+                 :port => 6661,
                  :nick => nick,
                 :ident => 'mrtech',
              :realname => 'MrTech - using on_irc Ruby IRC library',
+             :password => 'mrtech:hil0l',
               :options => { :use_ssl => false } )
 
 parser = Parser.new
@@ -94,7 +101,7 @@ irc.on_privmsg do |e|
     if calculation.empty?
       irc.msg(e.recipient, 'Invalid Calculation.')
     else
-      irc.msg(e.recipient, calculation)
+      irc.msg(e.recipient, calculation.gsub('&#215;', '*').gsub('<sup>', '^').gsub('</sup>', ''))
     end
   end
   
@@ -281,43 +288,49 @@ irc.on_privmsg do |e|
     ]
     
     query = c.message
-    results = servers.map do |server|
-      server_info = @urt.get_stats(server)
-      
-      if server_info.is_a? UrTServerInfo
-        matches = server_info.players.select do |player|
-          player.name.downcase.include? query.downcase
-        end
-        
-        next nil if matches.empty?
-        
-        if matches.size == 1
-          next "Match on #{server_info.sv_hostname}: #{matches[0].name} (with #{matches[0].score} points)"
-        end
-        
-        result = 
-        sorted_matches = matches.sort do |a, b|
-          next a.name.downcase <=> b.name.downcase if a.score == b.score
-          b.score <=> a.score
-        end
-        
-        # Each match gets an element
-        match_lines = sorted_matches.map do |player|
-          "#{player.name} " + ((player.score == 0) ? ' ' : "(#{player.score}) ")
-        end
-        
-        next "#{server_info.sv_hostname}: #{match_lines.join(' - ')}"
-      else
-        next nil
-      end
-    end.compact
     
-    if results.empty?
-      irc.msg(e.recipient, "Sorry, I couldn't find #{query} anywhere.")
-    elsif results.size == 1
-      irc.msg(e.recipient, results[0])
+    if query.nil? or query.size < 1
+      irc.msg(e.recipient, "Usage: $findurt <part of name> to find a user on the common EighthBit Urban terror servers: 8b, 8b-testing, and BLR.")
     else
-      irc.msg(e.recipient, "Got matches on #{results.size} different servers... " + results.join(' || '))
+    
+      results = servers.map do |server|
+        server_info = @urt.get_stats(server)
+        
+        if server_info.is_a? UrTServerInfo
+          matches = server_info.players.select do |player|
+            player.name.downcase.include? query.downcase
+          end
+          
+          next nil if matches.empty?
+          
+          if matches.size == 1
+            next "Match on #{server_info.sv_hostname}: #{matches[0].name} (with #{matches[0].score} points)"
+          end
+          
+          result = 
+          sorted_matches = matches.sort do |a, b|
+            next a.name.downcase <=> b.name.downcase if a.score == b.score
+            b.score <=> a.score
+          end
+          
+          # Each match gets an element
+          match_lines = sorted_matches.map do |player|
+            "#{player.name} " + ((player.score == 0) ? ' ' : "(#{player.score}) ")
+          end
+          
+          next "#{server_info.sv_hostname}: #{match_lines.join(' - ')}"
+        else
+          next nil
+        end
+      end.compact
+      
+      if results.empty?
+        irc.msg(e.recipient, "Sorry, I couldn't find #{query} anywhere.")
+      elsif results.size == 1
+        irc.msg(e.recipient, results[0])
+      else
+        irc.msg(e.recipient, "Got matches on #{results.size} different servers... " + results.join(' || '))
+      end
     end
   end
   
